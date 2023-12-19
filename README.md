@@ -1,27 +1,23 @@
-# car_AI_RL
-# 功能
-用於將Unity的資料透過Rosbridge傳輸到RL訓練環境進行訓練
-# 各個程式介紹
-* AI_node.py
-    * 收送資料和取得經轉換後的資料
-* UnityAdaptor.py
-    * 轉換資料，和決定訓練資料輸出
-* car_dataCollect.py
-    * 已經廢棄使用
-* car_testing.py
-    * 測試Unity資料收送和測試UnityAdaptor轉換是否正常
-* env.py
-    * 用gym的模板做的訓練環境，step、reset、reward相關功能都在這邊
-* main.py
-    * 主程式碼
-* tools.py
-    * reward計算會使用到的工具
-# 測試用資料夾(用於測試其他方法)
-* senior_sister (學姊的程式碼)
-* AINode_ver (修改node運作)
-# 執行程式碼
-1. 啟動Unity (目前因傳輸問題，所以有順序關係)
-2. 執行`python3 main.py`
-# 待改善問題
-* Unity之間的資料傳輸可能因為太快導致資料遺失或是其他問題，造成此端的訓練程式無法接收到最新的state
-* 經過第一次reset後，step輸出action會出現異常(一直做重複的動作都不變)和傳輸過來的資料不是最新的state導致無法正常reset"# car_AI_RL_ENV" 
+# car_AI RL Unity ENV
+## 安裝
+* 直接將裡面的東西用Unity開，可以用別的版本開啟(2022.3.9f1可以)
+* 打開後左下有個Scenes，選class
+* supervised 程式碼 : https://github.com/alianlbj23/car_AI_supervised_learning
+## 重點程式碼
+### 管理車體驅動、環境數值收送
+* trainingManager
+    * ROS的topic收送
+    * 修改training的名稱，training為model 訓練RL用，後面隨便加個東西，變成手動控制
+    * CarMove() : wasd控制和調驅動輪子數值
+    * OnWebSocketMessage : 收到輪速後的動作(inference用)
+    * Send() : 傳送資料
+### 車體驅動
+* Robot
+    * 取得目前所有關於車體的資料
+    * 傳送驅動數值給輪子
+* MotionSensor
+    * 取得車子座標、轉速、四位數轉角
+* MotorMoveForward
+    * 收到數值讓車輪轉動
+### 定義要回傳給AI的資料
+* State (不一定都要用，但沒定義一定不能用)
