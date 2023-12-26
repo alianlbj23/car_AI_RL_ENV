@@ -10,7 +10,17 @@ public class LidarSensor : MonoBehaviour
     public float RangeMetersMax = 100; // 1000
     float ScanAngleStartDegrees = 0; //-45
     float ScanAngleEndDegrees = -359; //45
-    public int NumMeasurementsPerScan = 180; //10
+    public int NumMeasurementsPerScan = 180; //10 // 可能是控制lidar的射線數量
+    private Color[] lineColors = new Color[] {
+        Color.red,
+        Color.green,
+        Color.blue,
+        Color.yellow,
+        Color.cyan,
+        Color.magenta,
+        Color.white,
+        Color.black
+    };
 
     List<float> ranges = new List<float>();
     List<float> range_tmp = new List<float>();
@@ -61,7 +71,7 @@ public class LidarSensor : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        
+        NumMeasurementsPerScan = 360;
         if (!isScanning)
         {
 
@@ -70,7 +80,6 @@ public class LidarSensor : MonoBehaviour
 
 
         var measurementsSoFar = NumMeasurementsPerScan; //180
-
         var yawBaseDegrees = transform.rotation.eulerAngles.y;
         while (m_NumMeasurementsTaken < measurementsSoFar)
         {
@@ -81,6 +90,9 @@ public class LidarSensor : MonoBehaviour
             var measurementStart = RangeMetersMin * directionVector + transform.position; //ray scan in z axis
             var measurementRay = new Ray(measurementStart, directionVector);//Simulate laser light from the starting point in a specific direction
             var foundValidMeasurement = Physics.Raycast(measurementRay, out var hit, RangeMetersMax); //Returns whether an object was detected
+            
+            int colorIndex = (m_NumMeasurementsTaken / 45) % lineColors.Length;
+            Color lineColor = lineColors[colorIndex];
             // Only record measurement if it's within the sensor's operating range
             if (foundValidMeasurement) 
             {   
@@ -90,15 +102,19 @@ public class LidarSensor : MonoBehaviour
                 else{
                     ranges.Add(hit.distance); //  object distance
                 }
+                // Debug.DrawLine(measurementStart, hit.point, lineColor, 0.1f);
                 
             }
             else
             {
+                var rayEnd = measurementStart + directionVector * RangeMetersMax;
+                // Debug.DrawLine(measurementStart, rayEnd, lineColor, 0.1f);
                 ranges.Add(100.0f);
             }
 
             // Even if Raycast didn't find a valid hit, we still count it as a measurement
             ++m_NumMeasurementsTaken;
+            
             directionVectors.Add(directionVector);            
         }
         

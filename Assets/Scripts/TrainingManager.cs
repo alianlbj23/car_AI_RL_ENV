@@ -12,6 +12,7 @@ using Math = System.Math;
 using System.Reflection;
 using WebSocketSharp;
 using MiniJSON;
+using UnityEngine.SceneManagement;
 
 public class TrainingManager : MonoBehaviour
 {
@@ -63,14 +64,15 @@ public class TrainingManager : MonoBehaviour
     Phase phase;
     public float stepTime = 0.05f; //0.1f
     public float currentStepTime = 0.0f;
+    float target_change_flag = 0;
+    string mode = "Training";
     void Awake()
     {
         baselink = robot.transform.Find("base_link");
     }
 
-    
     Vector3 carPos;
-    string mode = "Training";
+    
     float key = 0;
     public float delayInSeconds = 0f;
     void Start()
@@ -99,9 +101,11 @@ public class TrainingManager : MonoBehaviour
 
         socket.Connect();
 
-        State state = robot.GetState(newTarget);
+        change_target();
+        // get_position_test();
+        // State state = robot.GetState(newTarget);
 
-        Send(state);
+        // Send(state);
     }
 
     float target_x;
@@ -109,55 +113,91 @@ public class TrainingManager : MonoBehaviour
     float target_x_car;
     float target_y_car;
 
-    float target_change_flag = 0;
-
+    
+    float delayTimer = 0.0f;
+    float delayDuration = 2.0f;
+    bool isDelayedActionTriggered = false;
     void FixedUpdate ()
     {
         if (mode == "Training")
         {
             if (key == 1)
             {
-                State state = robot.GetState(newTarget);
-                Send(state);
-                actionFinish();
-                key = 0;
+                    // State state = robot.GetState(newTarget);
+                    // Send(state);
+                    key = 0;
+                    StartCoroutine(DelayedSend(0f, newTarget));
+                
+                // actionFinish();
+                
             }
 
 
             if (target_change_flag == 1)
             {
-                change_target();
-                
-                
-                target_change_flag = 0;
-                float[] reset_wheel = new float[] { 0.0f, 0.0f };
-                ExecuteRobotAction(reset_wheel, robot);
-                actionFinish(); 
-                // key = 1;
+                ReloadCurrentScene();
             }
         }
-
+        
+        
+        
         else // 這邊是testing用
         {
             CarMove();
             if (target_change_flag == 1){
                 change_target();
+                if (!isDelayedActionTriggered)
+                {
+                    delayTimer += Time.deltaTime;
+                    if (delayTimer >= delayDuration)
+                    {
+                        // State state = updateState(newTarget);
+                        // Debug.Log(state);
+                        // Send(state);                        
+                    }
+                }
                 target_change_flag = 0;
             }
+            // else if(target_change_flag == 2){
+            //     if (!isDelayedActionTriggered)
+            //     {
+            //         delayTimer += Time.deltaTime;
+            //         if (delayTimer >= delayDuration)
+            //         {
+            //             State state = updateState(newTarget);
+            //             Send(state);
+            //             Debug.Log("reset!!!!!");
+            //             isDelayedActionTriggered = true;
+            //         }
+            //         target_change_flag = 0;
+            //     }
+            // }
+            
         }
         
     }
+    IEnumerator DelayedSend(float delayTime, Vector3 newTarget)
+    {
+        // 等待一段时间
+        yield return new WaitForSeconds(delayTime);
 
-    // void FixedUpdate()
-    // {
+        // 延迟后执行的代码
+        State state = robot.GetState(newTarget);
+        Send(state);
+        key = 0;
 
-    //     if (phase == Phase.Run)
-    //         currentStepTime += Time.fixedDeltaTime;
-    //     if (phase == Phase.Run && currentStepTime >= stepTime)
-    //     {
-    //         EndStep();
-    //     }
-    // }
+        // 如果需要的话，这里可以调用actionFinish或其他函数
+        // actionFinish();
+    }
+
+    void ReloadCurrentScene()
+        {
+            // 获取当前场景的名称
+            string currentSceneName = SceneManager.GetActiveScene().name;
+
+            // 重新加载当前场景
+            SceneManager.LoadScene(currentSceneName);
+        }
 
     void StartStep()
     {
@@ -194,27 +234,24 @@ public class TrainingManager : MonoBehaviour
 
     void CarMove()
     {
-
+        float speed_forward = 300f;
+        float speed_rotate = 500f;
         if (Input.GetKey(KeyCode.W))
         {
-            WheelSpeed(600f, 600f);
+            WheelSpeed(speed_forward, speed_forward);
         }
         else if (Input.GetKey(KeyCode.D))
         {
-            WheelSpeed(600f, -600f);
+            WheelSpeed(speed_rotate, -speed_rotate);
         }
         else if (Input.GetKey(KeyCode.A))
         {
-            WheelSpeed(-600f, 600f);
+            WheelSpeed(-speed_rotate, speed_rotate);
         }
         else if (Input.GetKey(KeyCode.S))
         {
-            WheelSpeed(-600f, -600f);
+            WheelSpeed(-speed_forward, -speed_forward);
         }
-        // else if (Input.GetKey(KeyCode.E))
-        // {
-        //     actionFinish(); //  也可用來讓自走車收集資料截斷用(supervised)
-        // }
         else
         {
             WheelSpeed(0f, 0f);
@@ -273,12 +310,13 @@ public class TrainingManager : MonoBehaviour
         {
             case "/AI_2_Unity":
                 HandleAI2UnityReceiveTopic(message);
+                
                 break;
             case "/AI_2_Unity_RESET_flag":
                 HandleAI2UnityResetTopic(message);
                 break;
             case "/AI2Unity_action_reset_Topic":
-                float[] reset_wheel = new float[] { 0.0f, 0.0f };
+                float[] reset_wheel = new float[] { 4.0f};
                 ExecuteRobotAction(reset_wheel, robot);
                 Debug.Log("idusaiudjasijudisla");
                 break;
@@ -288,76 +326,73 @@ public class TrainingManager : MonoBehaviour
         }
     }
 
-    float MapRange(float value, float from1, float to1, float from2, float to2)
-    {
-        return (value - from1) / (to1 - from1) * (to2 - from2) + from2;
-    }
-    float MapData(float value)
-    {
-        if (value >= 0)
-        {
-            return MapRange(value, 0, 10, 300, 550);
-        }
-        else
-        {
-            return MapRange(value, 0, -10, -300, -550);
-        }
-    }
-
-    public void StopRobotAction(float[] data, Robot robot){
-        Robot.Action action = new Robot.Action();
-        action.voltage.Add(data[0]);
-        action.voltage.Add(data[1]);
-        robot.DoAction(action);
-    }
+    // float MapRange(float value, float from1, float to1, float from2, float to2)
+    // {
+    //     return (value - from1) / (to1 - from1) * (to2 - from2) + from2;
+    // }
+    // float MapData(float value)
+    // {
+    //     if (value >= 0)
+    //     {
+    //         return MapRange(value, 0, 10, 300, 400);
+    //     }
+    //     else
+    //     {
+    //         return MapRange(value, 0, -10, -300, -400);
+    //     }
+    // }
 
     public void ExecuteRobotAction(float[] data, Robot robot)
     {
-        if (data == null || robot == null || data.Length < 2)
+        if (data == null || robot == null || data.Length < 1)
         {
-            Debug.Log("error");
             return;
         }
 
-        float mappedData0;
-        float mappedData1;
+        float right = 0.0f;
+        float left = 0.0f;
+        float speed = 500.0f;
 
-        // 檢查data數組中的值是否都為0
-        if (data[0] == 0f && data[1] == 0f)
-        {
-            Debug.Log("reset the wheel!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-            mappedData0 = 0f;
-            mappedData1 = 0f;
+        if(data[0] == 0.0f){
+            right = speed;
+            left = speed;
         }
-        else
-        {
-            // 轉換data到float並映射它們
-            mappedData0 = MapData(data[0]);
-            mappedData1 = MapData(data[1]);
+        else if(data[0] == 1.0f){
+            right = -speed;
+            left = speed;
         }
-        // 創建一個新動作並設置其電壓
-        // Debug.Log(mappedData0 + " " + mappedData1);
+        else if(data[0] == 2.0f){
+            right = speed;
+            left = -speed;
+        }
+        else if(data[0] == 3.0f){
+            right = -speed;
+            left = -speed;
+        }
+        else if(data[0] == 4.0f){
+            right = 0.0f;
+            left = 0.0f;
+        }
+        
         Robot.Action action = new Robot.Action();
         action.voltage = new List<float>();
-        action.voltage.Add(mappedData0);
-        action.voltage.Add(mappedData1);
+        action.voltage.Add(right);
+        action.voltage.Add(left);
 
         // 在機器人上執行動作
         robot.DoAction(action);
         key = 1;
-        // StartStep();
     }
 
     private void HandleAI2UnityReceiveTopic(RobotNewsMessage message)
-    {    
+    {   
         float[] data = message.msg.data;
+
         ExecuteRobotAction(data, robot);
     }
 
     private void HandleAI2UnityResetTopic(RobotNewsMessage message)
-    {
-        Debug.Log("Reset the game!!!!!!!!");
-        
+    {        
         target_change_flag = 1;
     }
 
@@ -459,45 +494,37 @@ public class TrainingManager : MonoBehaviour
             anchor4.transform.position
         };
         // -------------------------------------
+         do {
         target_x_car = Random.Range(-3.0f, 3.0f);
         target_x_car = abs_biggerthan1(target_x_car);
-
         target_y_car = Random.Range(-3.0f, 3.0f);
         target_y_car = abs_biggerthan1(target_y_car);
+        newTarget_car = new Vector3(carPos[0] + target_x_car, -1.608f, carPos[2] + target_y_car);
+    } while (!IsPointInsidePolygon(newTarget_car, outerPolygonVertices));
 
-        newTarget_car = new Vector3(carPos[0] + target_x_car, carPos[1], carPos[2] + target_y_car);
-        while (!IsPointInsidePolygon(newTarget_car, outerPolygonVertices))
-        {
-            target_x_car = Random.Range(-3.0f, 3.0f);
-            target_x_car = abs_biggerthan1(target_x_car);
-            target_y_car = Random.Range(-3.0f, 3.0f);
-            target_y_car = abs_biggerthan1(target_y_car);
-            newTarget_car = new Vector3(carPos[0] + target_x_car, -1.608f, carPos[2] + target_y_car);
-        }
         MoveRobot(newTarget_car);
 
+        do {
         target_x = Random.Range(-3.0f, 3.0f);
         target_x = abs_biggerthan1(target_x);
-
         target_y = Random.Range(-3.0f, 3.0f);
         target_y = abs_biggerthan1(target_y);
         newTarget = new Vector3(newTarget_car[0] + target_x, -1.608f, newTarget_car[2] + target_y);
-        while (!IsPointInsidePolygon(newTarget, outerPolygonVertices))
-        {
-            target_x = Random.Range(-3.0f, 3.0f);
-            target_x = abs_biggerthan1(target_x);
-            target_y = Random.Range(-3.0f, 3.0f);
-            target_y = abs_biggerthan1(target_y);
-            newTarget = new Vector3(carPos[0] + target_x, -1.608f, carPos[2] + target_y);
-        }
+    } while (!IsPointInsidePolygon(newTarget, outerPolygonVertices) || Vector3.Distance(newTarget, newTarget_car) < 3);
+
+
         MoveGameObject(target, newTarget);
 
-        
-
         State state = updateState(newTarget);
-
         Send(state);
         
+    }
+
+    void get_position_test()
+    {
+       Vector3 targetPosition = target.transform.position;
+       State state = updateState(newTarget);
+       Send(state);
     }
 
     private float abs_biggerthan1(float random)
