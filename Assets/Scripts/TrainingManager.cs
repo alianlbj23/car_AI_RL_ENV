@@ -101,8 +101,9 @@ public class TrainingManager : MonoBehaviour
 
         socket.Connect();
 
-        change_target();
-        // get_position_test();
+        // change_target();
+        get_position_test();
+        
         // State state = robot.GetState(newTarget);
 
         // Send(state);
@@ -126,7 +127,7 @@ public class TrainingManager : MonoBehaviour
                     // State state = robot.GetState(newTarget);
                     // Send(state);
                     key = 0;
-                    StartCoroutine(DelayedSend(0f, newTarget));
+                    StartCoroutine(DelayedSend(0.7f, newTarget));
                 
                 // actionFinish();
                 
